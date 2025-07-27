@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🦐 Setup Web Deteksi Udang (dengan venv & systemd)"
+echo "🦐 Setup Web Deteksi Udang (640x640 + venv + systemd)"
 
 # === Konfigurasi ===
 APP_USER=$USER
@@ -58,7 +58,7 @@ def predict():
 
         file = request.files['image']
         image = Image.open(file.stream).convert('RGB')
-        image = image.resize((224, 224))
+        image = image.resize((640, 640))  # ✅ Sesuaikan dengan model input
         input_array = np.array(image, dtype=np.float32) / 255.0
         input_array = np.expand_dims(input_array, axis=0)
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
 EOF
 
-# === Buat HTML ===
+# === Buat HTML Upload ===
 cat > "$APP_DIR/static/index.html" << 'EOF'
 <!DOCTYPE html>
 <html>
@@ -140,5 +140,5 @@ sudo systemctl enable shrimp_counter
 sudo systemctl restart shrimp_counter
 
 # === Selesai ===
-echo "✅ Web server udang berhasil di-setup sebagai service."
+echo "✅ Web server udang berhasil jalan di background."
 echo "🌐 Akses via browser: http://$(hostname -I | awk '{print $1}'):5000/"
