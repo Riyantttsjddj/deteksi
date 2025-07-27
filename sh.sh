@@ -1,26 +1,37 @@
 #!/bin/bash
 
-echo "🦐 Setup Web Deteksi Udang dengan systemd"
+echo "🦐 Setup Web Deteksi Udang (dengan venv & systemd)"
 
-# Konfigurasi pengguna dan path (ubah jika perlu)
+# === Konfigurasi ===
 APP_USER=$USER
 APP_DIR="/home/$APP_USER/shrimp_counter_web"
+VENV_DIR="$APP_DIR/venv"
+PYTHON_BIN="$VENV_DIR/bin/python3"
 
-# 1. Install dependensi
-echo "📦 Menginstal dependensi Python..."
+# === Install dependensi sistem ===
+echo "📦 Menginstal dependensi sistem..."
 sudo apt update
-sudo apt install -y python3 python3-pip
-pip3 install flask tensorflow pillow
+sudo apt install -y python3 python3-venv python3-pip
 
-# 2. Buat struktur proyek
-echo "📁 Membuat direktori proyek di $APP_DIR"
+# === Buat direktori proyek ===
+echo "📁 Membuat direktori proyek..."
 mkdir -p "$APP_DIR/static"
 
-# 3. Salin model (pastikan file ada di folder ini)
+# === Buat virtual environment ===
+echo "🐍 Membuat virtual environment..."
+python3 -m venv "$VENV_DIR"
+source "$VENV_DIR/bin/activate"
+
+# === Install dependensi ke venv ===
+echo "📦 Install Flask, TensorFlow, Pillow ke virtual env..."
+"$VENV_DIR/bin/pip" install --upgrade pip
+"$VENV_DIR/bin/pip" install flask tensorflow pillow
+
+# === Salin model ===
 echo "📂 Menyalin model best_float32.tflite..."
 cp best_float32.tflite "$APP_DIR/"
 
-# 4. Buat file app.py
+# === Buat app.py ===
 cat > "$APP_DIR/app.py" << 'EOF'
 from flask import Flask, request, jsonify, render_template
 import numpy as np
@@ -64,7 +75,7 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
 EOF
 
-# 5. Buat HTML form
+# === Buat HTML ===
 cat > "$APP_DIR/static/index.html" << 'EOF'
 <!DOCTYPE html>
 <html>
@@ -102,30 +113,32 @@ cat > "$APP_DIR/static/index.html" << 'EOF'
 </html>
 EOF
 
-# 6. Buat systemd service
+# === Buat systemd service ===
 SERVICE_FILE="/etc/systemd/system/shrimp_counter.service"
 echo "⚙️ Membuat systemd service di $SERVICE_FILE"
 sudo bash -c "cat > $SERVICE_FILE" << EOF
 [Unit]
-Description=Shrimp Counter Web Server
+Description=Shrimp Counter Web Server (via venv)
 After=network.target
 
 [Service]
 User=$APP_USER
 WorkingDirectory=$APP_DIR
-ExecStart=/usr/bin/python3 app.py
+ExecStart=$PYTHON_BIN app.py
 Restart=always
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# 7. Reload systemd dan aktifkan service
-echo "🔁 Mengaktifkan service..."
+# === Aktifkan dan mulai service ===
+echo "🔁 Reload & aktifkan service..."
 sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable shrimp_counter
 sudo systemctl restart shrimp_counter
 
-echo "✅ Web server udang berjalan di background."
-echo "🌐 Akses di: http://$(hostname -I | awk '{print $1}'):5000/"
+# === Selesai ===
+echo "✅ Web server udang berhasil di-setup sebagai service."
+echo "🌐 Akses via browser: http://$(hostname -I | awk '{print $1}'):5000/"
