@@ -1,37 +1,31 @@
 #!/bin/bash
 
-echo "🦐 Setup Web Deteksi Udang (640x640 + venv + systemd)"
+echo "🦐 Setup Web Deteksi Udang (Fix Output Scalar Error)"
 
-# === Konfigurasi ===
 APP_USER=$USER
 APP_DIR="/home/$APP_USER/shrimp_counter_web"
 VENV_DIR="$APP_DIR/venv"
 PYTHON_BIN="$VENV_DIR/bin/python3"
 
-# === Install dependensi sistem ===
-echo "📦 Menginstal dependensi sistem..."
+echo "📦 Menginstal sistem dependencies..."
 sudo apt update
 sudo apt install -y python3 python3-venv python3-pip
 
-# === Buat direktori proyek ===
-echo "📁 Membuat direktori proyek..."
+echo "📁 Membuat folder proyek..."
 mkdir -p "$APP_DIR/static"
 
-# === Buat virtual environment ===
 echo "🐍 Membuat virtual environment..."
 python3 -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 
-# === Install dependensi ke venv ===
-echo "📦 Install Flask, TensorFlow, Pillow ke virtual env..."
+echo "📦 Menginstal Flask, TensorFlow, Pillow..."
 "$VENV_DIR/bin/pip" install --upgrade pip
 "$VENV_DIR/bin/pip" install flask tensorflow pillow
 
-# === Salin model ===
-echo "📂 Menyalin model best_float32.tflite..."
+echo "📂 Menyalin model..."
 cp best_float32.tflite "$APP_DIR/"
 
-# === Buat app.py ===
+# === app.py ===
 cat > "$APP_DIR/app.py" << 'EOF'
 from flask import Flask, request, jsonify, render_template
 import numpy as np
@@ -58,7 +52,7 @@ def predict():
 
         file = request.files['image']
         image = Image.open(file.stream).convert('RGB')
-        image = image.resize((640, 640))  # ✅ Sesuai model input
+        image = image.resize((640, 640))
         input_array = np.array(image, dtype=np.float32) / 255.0
         input_array = np.expand_dims(input_array, axis=0)
 
@@ -66,7 +60,9 @@ def predict():
         interpreter.invoke()
         output_data = interpreter.get_tensor(output_details[0]['index'])
 
-        jumlah_udang = int(np.round(output_data[0][0]))  # ✅ FIX error scalar
+        # ✅ Aman untuk berbagai bentuk array
+        jumlah_udang = int(np.round(output_data.flatten()[0]))
+
         return jsonify({'jumlah_udang': jumlah_udang})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -75,7 +71,7 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
 EOF
 
-# === Buat HTML Upload ===
+# === index.html ===
 cat > "$APP_DIR/static/index.html" << 'EOF'
 <!DOCTYPE html>
 <html>
@@ -113,9 +109,9 @@ cat > "$APP_DIR/static/index.html" << 'EOF'
 </html>
 EOF
 
-# === Buat systemd service ===
+# === systemd ===
 SERVICE_FILE="/etc/systemd/system/shrimp_counter.service"
-echo "⚙️ Membuat systemd service di $SERVICE_FILE"
+echo "⚙️ Membuat systemd service..."
 sudo bash -c "cat > $SERVICE_FILE" << EOF
 [Unit]
 Description=Shrimp Counter Web Server (via venv)
@@ -132,13 +128,11 @@ Environment=PYTHONUNBUFFERED=1
 WantedBy=multi-user.target
 EOF
 
-# === Aktifkan dan mulai service ===
 echo "🔁 Reload & aktifkan service..."
 sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable shrimp_counter
 sudo systemctl restart shrimp_counter
 
-# === Selesai ===
-echo "✅ Web server udang berhasil jalan di background."
-echo "🌐 Akses via browser: http://$(hostname -I | awk '{print $1}'):5000/"
+echo "✅ Web server deteksi udang aktif."
+echo "🌐 Akses di: http://$(hostname -I | awk '{print $1}'):5000/"
