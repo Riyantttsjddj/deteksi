@@ -58,7 +58,7 @@ def predict():
 
         file = request.files['image']
         image = Image.open(file.stream).convert('RGB')
-        image = image.resize((640, 640))  # ✅ Sesuaikan dengan model input
+        image = image.resize((640, 640))  # ✅ Sesuai model input
         input_array = np.array(image, dtype=np.float32) / 255.0
         input_array = np.expand_dims(input_array, axis=0)
 
@@ -66,7 +66,7 @@ def predict():
         interpreter.invoke()
         output_data = interpreter.get_tensor(output_details[0]['index'])
 
-        jumlah_udang = int(np.round(output_data[0][0]))
+        jumlah_udang = int(np.round(output_data[0][0]))  # ✅ FIX error scalar
         return jsonify({'jumlah_udang': jumlah_udang})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
